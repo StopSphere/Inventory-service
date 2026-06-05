@@ -1,10 +1,28 @@
 server:
   port: 8084
 spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+
+    consumer:
+      group-id: inventory-service-group
+      auto-offset-reset: latest
+
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.value.default.type: com.order_service.shopsphere.order_service.DTO.Event.OrderCreatedEvent
+
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
   application:
     name: inventory-service
   datasource:
-    url: jdbc:mysql://localhost:3307/inventory_db
+    url: jdbc:mysql://localhost:3307/inventory_db?createDatabaseIfNotExist=true
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:1234}
     driver-class-name: com.mysql.cj.jdbc.Driver

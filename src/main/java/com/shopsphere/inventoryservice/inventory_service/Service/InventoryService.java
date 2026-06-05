@@ -8,10 +8,10 @@ import java.util.UUID;
 
 public interface InventoryService
 {
-    public InventoryResponse addStock(CreateInventoryRequest request);
+     InventoryResponse addStock(CreateInventoryRequest request);
 
-    public InventoryResponse removeStock(UUID productId, Integer quantity);
+     InventoryResponse removeStock(UUID productId, Integer quantity);
 
-    public InventoryResponse getStock(UUID productId);
-    public List<InventoryResponse> getAllInventory();
+     InventoryResponse getStock(UUID productId);
+     List<InventoryResponse> getAllInventory();
 }

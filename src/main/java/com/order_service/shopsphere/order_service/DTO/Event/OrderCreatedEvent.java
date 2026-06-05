@@ -1,4 +1,4 @@
-package com.shopsphere.inventoryservice.inventory_service.DTO.Event;
+package com.order_service.shopsphere.order_service.DTO.Event;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

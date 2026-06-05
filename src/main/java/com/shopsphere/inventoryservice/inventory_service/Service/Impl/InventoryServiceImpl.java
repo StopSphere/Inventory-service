@@ -5,6 +5,7 @@ import com.shopsphere.inventoryservice.inventory_service.DTO.Response.InventoryR
 import com.shopsphere.inventoryservice.inventory_service.Entity.Inventory;
 import com.shopsphere.inventoryservice.inventory_service.Repository.InventoryRepository;
 import com.shopsphere.inventoryservice.inventory_service.Service.InventoryService;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -26,9 +27,10 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     @Override
+    @Transactional
     public InventoryResponse removeStock(UUID productId, Integer quantity) {
 
-        Inventory inventory = inventoryRepository.findByProductId(productId)
+        Inventory inventory = inventoryRepository.findByProductIdWithLock(productId)
                 .orElseThrow(() -> new RuntimeException("Product not found"));
 
         if (inventory.getQuantity() < quantity) {

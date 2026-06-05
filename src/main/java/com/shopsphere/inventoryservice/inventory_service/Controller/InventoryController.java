@@ -32,7 +32,7 @@ public class InventoryController {
     @PutMapping("/remove")
     public ResponseEntity<InventoryResponse> removeStock(
             @RequestParam UUID productId,
-            @RequestParam Integer quantity
+            @RequestParam int quantity
     ) {
         return ResponseEntity.ok(inventoryService.removeStock(productId, quantity));
     }
