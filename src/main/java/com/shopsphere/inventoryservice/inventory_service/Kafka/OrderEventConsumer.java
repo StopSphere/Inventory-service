@@ -39,7 +39,11 @@ public class OrderEventConsumer {
             );
 
             InventoryReservedEvent reservedEvent =
-                    new InventoryReservedEvent(event.getOrderId());
+                    new InventoryReservedEvent(event.getOrderId(),
+                            event.getProductId(),
+                            event.getQuantity() ,
+                            event.getAmount()
+                            );
 
             inventoryEventProducer.publishInventoryReservedEvent(reservedEvent);
             log.info("Inventory reserved for order: {}", event.getOrderId());
