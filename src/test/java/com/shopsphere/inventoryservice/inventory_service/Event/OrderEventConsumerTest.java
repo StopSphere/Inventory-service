@@ -16,11 +16,11 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
-
 @ExtendWith(MockitoExtension.class)
 class OrderEventConsumerTest {
 
@@ -42,6 +42,9 @@ class OrderEventConsumerTest {
     @Captor
     private ArgumentCaptor<InventoryFailedEvent> failedCaptor;
 
+    @Captor
+    private ArgumentCaptor<ProcessedOrder> processedOrderCaptor;
+
     @Test
     void shouldReserveInventorySuccessfully() {
 
@@ -52,12 +55,12 @@ class OrderEventConsumerTest {
                 new OrderCreatedEvent(
                         orderId,
                         productId,
-                        2
+                        2,
+                        BigDecimal.valueOf(1000)
                 );
 
-        when(
-                processedOrderRepository.existsById(orderId)
-        ).thenReturn(false);
+        when(processedOrderRepository.existsById(orderId))
+                .thenReturn(false);
 
         orderEventConsumer.consumeOrderCreatedEvent(event);
 
@@ -65,16 +68,27 @@ class OrderEventConsumerTest {
                 .removeStock(productId, 2);
 
         verify(processedOrderRepository)
-                .save(any(ProcessedOrder.class));
+                .save(processedOrderCaptor.capture());
+
+        assertEquals(
+                orderId,
+                processedOrderCaptor.getValue().getOrderId()
+        );
 
         verify(inventoryEventProducer)
                 .publishInventoryReservedEvent(
                         reservedCaptor.capture()
                 );
 
+        InventoryReservedEvent reservedEvent =
+                reservedCaptor.getValue();
+
+        assertEquals(orderId, reservedEvent.getOrderId());
+        assertEquals(productId, reservedEvent.getProductId());
+        assertEquals(2, reservedEvent.getQuantity());
         assertEquals(
-                orderId,
-                reservedCaptor.getValue().getOrderId()
+                BigDecimal.valueOf(1000),
+                reservedEvent.getAmount()
         );
     }
 
@@ -87,16 +101,19 @@ class OrderEventConsumerTest {
                 new OrderCreatedEvent(
                         orderId,
                         UUID.randomUUID(),
-                        2
+                        2,
+                        BigDecimal.valueOf(1000)
                 );
 
-        when(
-                processedOrderRepository.existsById(orderId)
-        ).thenReturn(true);
+        when(processedOrderRepository.existsById(orderId))
+                .thenReturn(true);
 
         orderEventConsumer.consumeOrderCreatedEvent(event);
 
         verifyNoInteractions(inventoryService);
+
+        verify(processedOrderRepository, never())
+                .save(any());
 
         verify(inventoryEventProducer, never())
                 .publishInventoryReservedEvent(any());
@@ -106,7 +123,7 @@ class OrderEventConsumerTest {
     }
 
     @Test
-    void shouldPublishInventoryFailedEvent() {
+    void shouldPublishInventoryFailedEventWhenStockUnavailable() {
 
         UUID orderId = UUID.randomUUID();
         UUID productId = UUID.randomUUID();
@@ -115,33 +132,69 @@ class OrderEventConsumerTest {
                 new OrderCreatedEvent(
                         orderId,
                         productId,
-                        2
+                        2,
+                        BigDecimal.valueOf(1000)
                 );
 
-        when(
-                processedOrderRepository.existsById(orderId)
-        ).thenReturn(false);
+        when(processedOrderRepository.existsById(orderId))
+                .thenReturn(false);
 
         doThrow(
                 new RuntimeException("Insufficient stock")
-        ).when(inventoryService)
+        )
+                .when(inventoryService)
                 .removeStock(productId, 2);
 
         orderEventConsumer.consumeOrderCreatedEvent(event);
+
+        verify(processedOrderRepository, never())
+                .save(any());
 
         verify(inventoryEventProducer)
                 .publishInventoryFailedEvent(
                         failedCaptor.capture()
                 );
 
+        InventoryFailedEvent failedEvent =
+                failedCaptor.getValue();
+
         assertEquals(
                 orderId,
-                failedCaptor.getValue().getOrderId()
+                failedEvent.getOrderId()
         );
 
         assertEquals(
                 "Insufficient stock",
-                failedCaptor.getValue().getReason()
+                failedEvent.getReason()
         );
+    }
+
+    @Test
+    void shouldNotPublishReservedEventWhenInventoryFails() {
+
+        UUID orderId = UUID.randomUUID();
+        UUID productId = UUID.randomUUID();
+
+        OrderCreatedEvent event =
+                new OrderCreatedEvent(
+                        orderId,
+                        productId,
+                        2,
+                        BigDecimal.valueOf(1000)
+                );
+
+        when(processedOrderRepository.existsById(orderId))
+                .thenReturn(false);
+
+        doThrow(
+                new RuntimeException("Inventory error")
+        )
+                .when(inventoryService)
+                .removeStock(productId, 2);
+
+        orderEventConsumer.consumeOrderCreatedEvent(event);
+
+        verify(inventoryEventProducer, never())
+                .publishInventoryReservedEvent(any());
     }
 }

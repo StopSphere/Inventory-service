@@ -7,6 +7,8 @@ import com.shopsphere.inventoryservice.inventory_service.Repository.InventoryRep
 import com.shopsphere.inventoryservice.inventory_service.Service.Impl.InventoryServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -27,16 +29,20 @@ class InventoryServiceTest {
     @InjectMocks
     private InventoryServiceImpl inventoryService;
 
+    @Captor
+    private ArgumentCaptor<Inventory> inventoryCaptor;
+
     @Test
     void shouldRemoveStockSuccessfully() {
 
         UUID productId = UUID.randomUUID();
 
-        Inventory inventory = new Inventory(
-                UUID.randomUUID(),
-                productId,
-                10
-        );
+        Inventory inventory =
+                new Inventory(
+                        UUID.randomUUID(),
+                        productId,
+                        10
+                );
 
         when(
                 inventoryRepository.findByProductIdWithLock(productId)
@@ -45,10 +51,14 @@ class InventoryServiceTest {
         InventoryResponse response =
                 inventoryService.removeStock(productId, 2);
 
-        assertEquals(8, inventory.getQuantity());
+        assertEquals(productId, response.getProductId());
         assertEquals(8, response.getQuantity());
+        assertEquals(8, inventory.getQuantity());
 
-        verify(inventoryRepository, times(1))
+        verify(inventoryRepository)
+                .findByProductIdWithLock(productId);
+
+        verify(inventoryRepository)
                 .save(inventory);
     }
 
@@ -57,25 +67,33 @@ class InventoryServiceTest {
 
         UUID productId = UUID.randomUUID();
 
-        Inventory inventory = new Inventory(
-                UUID.randomUUID(),
-                productId,
-                2
-        );
+        Inventory inventory =
+                new Inventory(
+                        UUID.randomUUID(),
+                        productId,
+                        2
+                );
 
         when(
                 inventoryRepository.findByProductIdWithLock(productId)
         ).thenReturn(Optional.of(inventory));
 
-        RuntimeException exception = assertThrows(
-                RuntimeException.class,
-                () -> inventoryService.removeStock(productId, 5)
-        );
+        RuntimeException exception =
+                assertThrows(
+                        RuntimeException.class,
+                        () -> inventoryService.removeStock(
+                                productId,
+                                5
+                        )
+                );
 
         assertEquals(
                 "Insufficient stock",
                 exception.getMessage()
         );
+
+        verify(inventoryRepository)
+                .findByProductIdWithLock(productId);
 
         verify(inventoryRepository, never())
                 .save(any());
@@ -90,13 +108,54 @@ class InventoryServiceTest {
                 inventoryRepository.findByProductIdWithLock(productId)
         ).thenReturn(Optional.empty());
 
-        RuntimeException exception = assertThrows(
-                RuntimeException.class,
-                () -> inventoryService.removeStock(productId, 2)
-        );
+        RuntimeException exception =
+                assertThrows(
+                        RuntimeException.class,
+                        () -> inventoryService.removeStock(
+                                productId,
+                                2
+                        )
+                );
 
         assertEquals(
                 "Product not found",
+                exception.getMessage()
+        );
+
+        verify(inventoryRepository)
+                .findByProductIdWithLock(productId);
+
+        verify(inventoryRepository, never())
+                .save(any());
+    }
+
+    @Test
+    void shouldThrowExceptionWhenQuantityIsNegative() {
+
+        UUID productId = UUID.randomUUID();
+
+        Inventory inventory =
+                new Inventory(
+                        UUID.randomUUID(),
+                        productId,
+                        10
+                );
+
+        when(
+                inventoryRepository.findByProductIdWithLock(productId)
+        ).thenReturn(Optional.of(inventory));
+
+        RuntimeException exception =
+                assertThrows(
+                        RuntimeException.class,
+                        () -> inventoryService.removeStock(
+                                productId,
+                                -1
+                        )
+                );
+
+        assertEquals(
+                "Quantity must be positive",
                 exception.getMessage()
         );
 
@@ -129,10 +188,13 @@ class InventoryServiceTest {
         InventoryResponse response =
                 inventoryService.addStock(request);
 
-        assertEquals(15, inventory.getQuantity());
+        assertEquals(productId, response.getProductId());
         assertEquals(15, response.getQuantity());
 
-        verify(inventoryRepository, times(1))
+        verify(inventoryRepository)
+                .findByProductId(productId);
+
+        verify(inventoryRepository)
                 .save(inventory);
     }
 
@@ -157,8 +219,21 @@ class InventoryServiceTest {
         assertEquals(productId, response.getProductId());
         assertEquals(5, response.getQuantity());
 
-        verify(inventoryRepository, times(1))
-                .save(any(Inventory.class));
+        verify(inventoryRepository)
+                .save(inventoryCaptor.capture());
+
+        Inventory savedInventory =
+                inventoryCaptor.getValue();
+
+        assertEquals(
+                productId,
+                savedInventory.getProductId()
+        );
+
+        assertEquals(
+                5,
+                savedInventory.getQuantity()
+        );
     }
 
     @Test
@@ -180,11 +255,18 @@ class InventoryServiceTest {
         InventoryResponse response =
                 inventoryService.getStock(productId);
 
-        assertEquals(productId,
-                response.getProductId());
+        assertEquals(
+                productId,
+                response.getProductId()
+        );
 
-        assertEquals(20,
-                response.getQuantity());
+        assertEquals(
+                20,
+                response.getQuantity()
+        );
+
+        verify(inventoryRepository)
+                .findByProductId(productId);
     }
 
     @Test
@@ -206,6 +288,9 @@ class InventoryServiceTest {
                 "Product not found in inventory",
                 exception.getMessage()
         );
+
+        verify(inventoryRepository)
+                .findByProductId(productId);
     }
 
     @Test
@@ -234,10 +319,18 @@ class InventoryServiceTest {
 
         assertEquals(2, response.size());
 
-        assertEquals(10,
-                response.get(0).getQuantity());
+        assertEquals(
+                10,
+                response.get(0).getQuantity()
+        );
 
-        assertEquals(20,
-                response.get(1).getQuantity());
+        assertEquals(
+                20,
+                response.get(1).getQuantity()
+        );
+
+        verify(inventoryRepository)
+                .findAll();
     }
+
 }

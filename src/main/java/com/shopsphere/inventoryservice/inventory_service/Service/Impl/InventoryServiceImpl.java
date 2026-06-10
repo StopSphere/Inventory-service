@@ -63,6 +63,4 @@ public class InventoryServiceImpl implements InventoryService {
                 ))
                 .toList();
     }
-
-
 }

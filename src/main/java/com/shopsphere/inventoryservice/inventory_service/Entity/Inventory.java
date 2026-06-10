@@ -17,6 +17,7 @@ public class Inventory {
     @GeneratedValue(strategy = GenerationType.UUID )
     private UUID inventoryId;
 
+    @Column(unique = true)
     private UUID productId;
 
     private Integer quantity;
